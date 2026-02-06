@@ -1,0 +1,70 @@
+plugins{
+    id "java"
+}
+
+group = "pinyinsearchsupport"
+version = "1.0.0"
+
+java{
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
+
+repositories{
+    mavenCentral()
+    maven{ url "https://jitpack.io" }
+}
+
+dependencies{
+    // Prefer building against a local Mindustry source checkout (as an included subproject).
+    if(rootProject.findProject(":core") != null){
+        compileOnly project(":core")
+    }else{
+        // Standalone build: fetch Mindustry core from JitPack.
+        def mindustryVersion = (findProperty("mindustryVersion") ?: "v154.3").toString()
+        compileOnly "com.github.Anuken.MindustryJitpack:core:$mindustryVersion"
+    }
+
+    // Chinese -> pinyin conversion.
+    implementation "com.belerweb:pinyin4j:2.5.1"
+}
+
+tasks.withType(JavaCompile).configureEach{
+    options.encoding = "UTF-8"
+    // Mindustry Android requires Java 8 bytecode.
+    if(JavaVersion.current().isCompatibleWith(JavaVersion.VERSION_1_9)){
+        options.release.set(8)
+    }
+}
+
+def modArchiveName = "PinyinSearchSupport"
+
+// A Mindustry Java mod is a zip/jar archive with classes + resources.
+// Use .zip extension for distribution.
+jar{
+    archiveFileName = "${modArchiveName}.zip"
+
+    // Bundle runtime dependencies (e.g. pinyin4j) into the mod zip.
+    from{
+        configurations.runtimeClasspath.collect{ it.isDirectory() ? it : zipTree(it) }
+    }
+
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    exclude "META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA"
+}
+
+// Auto-copy build output to workspace root "构建/" with modName+version naming.
+tasks.register("copyZipToBuildFolder", Copy){
+    dependsOn tasks.named("jar")
+    from(tasks.named("jar").flatMap{ it.archiveFile })
+    into(new File(rootDir.parentFile, "构建"))
+    rename{ _ -> "${modArchiveName}-${project.version}.zip" }
+    doFirst{
+        destinationDir.mkdirs()
+    }
+    doNotTrackState("Copying into workspace build folder is a convenience step; state tracking is unnecessary here.")
+}
+
+tasks.named("jar").configure{
+    finalizedBy tasks.named("copyZipToBuildFolder")
+}
