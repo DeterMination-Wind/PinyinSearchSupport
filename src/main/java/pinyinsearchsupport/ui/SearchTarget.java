@@ -13,6 +13,7 @@ public class SearchTarget{
     private final TextField field;
     private final ScrollPane pane;
     private final Table table;
+    private Seq<Entry> baseEntries = new Seq<>();
 
     private SearchTarget(TextField field, ScrollPane pane, Table table){
         this.field = field;
@@ -24,6 +25,17 @@ public class SearchTarget{
         return field != null && field.getScene() != null
             && pane != null && pane.getScene() != null
             && table != null && table.getScene() != null;
+    }
+
+    public void captureCurrentAsBase(){
+        if(!isValid()) return;
+        baseEntries = snapshotEntries();
+    }
+
+    public void captureCurrentAsBaseIfMissing(){
+        if(baseEntries.isEmpty()){
+            captureCurrentAsBase();
+        }
     }
 
     public static SearchTarget find(TextField field){
@@ -86,14 +98,16 @@ public class SearchTarget{
         // If query is empty, let the vanilla list (rebuilt by the original callback) show everything.
         if(rawQuery.isEmpty()) return;
 
+        captureCurrentAsBaseIfMissing();
+        if(baseEntries.isEmpty()) return;
+
         float scrollY = pane.getScrollY();
-        Seq<Entry> entries = snapshotEntries();
 
         table.clearChildren();
 
         int added = 0;
-        for(int i = 0; i < entries.size; i++){
-            Entry entry = entries.get(i);
+        for(int i = 0; i < baseEntries.size; i++){
+            Entry entry = baseEntries.get(i);
             Element child = entry.element;
             if(child == null) continue;
 
@@ -118,9 +132,10 @@ public class SearchTarget{
             table.add("@none.found").padLeft(54f).padTop(10f);
         }
 
-        pane.setScrollYForce(scrollY);
-        pane.updateVisualScroll();
         table.invalidateHierarchy();
+        pane.layout();
+        pane.setScrollYForce(Math.max(0f, Math.min(scrollY, pane.getMaxY())));
+        pane.updateVisualScroll();
     }
 
     private Seq<Entry> snapshotEntries(){

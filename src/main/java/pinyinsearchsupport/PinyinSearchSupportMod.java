@@ -15,6 +15,9 @@ public class PinyinSearchSupportMod extends Mod{
     // Settings keys (stored in Core.settings).
     public static final String keyEnabled = "pss-enabled";
     public static final String keyFuzzy = "pss-fuzzy";
+    public static final String keyDelayMs = "pss-delay-ms";
+
+    public static final int defaultDelayMs = 180;
 
     private final SearchFieldPatcher patcher = new SearchFieldPatcher();
 
@@ -38,6 +41,7 @@ public class PinyinSearchSupportMod extends Mod{
 
             st.checkPref(keyEnabled, true);
             st.checkPref(keyFuzzy, true);
+            st.sliderPref(keyDelayMs, defaultDelayMs, 0, 1500, 10, value -> value + " ms");
         });
     }
 }

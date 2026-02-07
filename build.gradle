@@ -3,7 +3,7 @@ plugins{
 }
 
 group = "pinyinsearchsupport"
-version = "1.0.0"
+version = "1.1.0"
 
 java{
     sourceCompatibility = JavaVersion.VERSION_1_8
@@ -38,33 +38,206 @@ tasks.withType(JavaCompile).configureEach{
 }
 
 def modArchiveName = "PinyinSearchSupport"
+def buildCopyDir = new File(rootDir.parentFile, "构建")
 
-// A Mindustry Java mod is a zip/jar archive with classes + resources.
-// Use .zip extension for distribution.
-jar{
+def runtimeClasspathContents = {
+    configurations.runtimeClasspath.collect{ it.isDirectory() ? it : zipTree(it) }
+}
+
+tasks.register("zipMod", Zip){
+    group = "build"
+    description = "Packages the mod as a .zip for Mindustry."
+    dependsOn classes
     archiveFileName = "${modArchiveName}.zip"
-
-    // Bundle runtime dependencies (e.g. pinyin4j) into the mod zip.
-    from{
-        configurations.runtimeClasspath.collect{ it.isDirectory() ? it : zipTree(it) }
-    }
-
+    destinationDirectory = layout.buildDirectory.dir("libs")
+    from(sourceSets.main.output)
+    from(runtimeClasspathContents)
+    from("README.md")
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     exclude "META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA"
 }
 
-// Auto-copy build output to workspace root "构建/" with modName+version naming.
-tasks.register("copyZipToBuildFolder", Copy){
-    dependsOn tasks.named("jar")
-    from(tasks.named("jar").flatMap{ it.archiveFile })
-    into(new File(rootDir.parentFile, "构建"))
-    rename{ _ -> "${modArchiveName}-${project.version}.zip" }
-    doFirst{
-        destinationDir.mkdirs()
-    }
-    doNotTrackState("Copying into workspace build folder is a convenience step; state tracking is unnecessary here.")
+tasks.register("jarMod", Jar){
+    group = "build"
+    description = "Packages the mod as a .jar for desktop Mindustry."
+    dependsOn classes
+    archiveFileName = "${modArchiveName}.jar"
+    destinationDirectory = layout.buildDirectory.dir("libs")
+    from(sourceSets.main.output)
+    from(runtimeClasspathContents)
+    from("README.md")
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    exclude "META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA"
 }
 
-tasks.named("jar").configure{
+tasks.register("copyZipToDist", Copy){
+    dependsOn(tasks.named("zipMod"))
+    from(tasks.named("zipMod").flatMap{ it.archiveFile })
+    into(new File(project.projectDir, "dist"))
+    rename{ _ -> "${modArchiveName}.zip" }
+    doNotTrackState("Copying into dist is a convenience step; state tracking is unnecessary here.")
+}
+
+tasks.register("copyJarToDist", Copy){
+    dependsOn(tasks.named("jarMod"))
+    from(tasks.named("jarMod").flatMap{ it.archiveFile })
+    into(new File(project.projectDir, "dist"))
+    rename{ _ -> "${modArchiveName}.jar" }
+    doNotTrackState("Copying into dist is a convenience step; state tracking is unnecessary here.")
+}
+
+tasks.register("copyZipToBuildFolder", Copy){
+    dependsOn(tasks.named("zipMod"))
+    from(tasks.named("zipMod").flatMap{ it.archiveFile })
+    into(buildCopyDir)
+    rename{ _ -> "${modArchiveName}-${project.version}.zip" }
+    doFirst{
+        buildCopyDir.mkdirs()
+    }
+    doNotTrackState("Copying into workspace 构建 is a convenience step; state tracking is unnecessary here.")
+}
+
+tasks.register("copyJarToBuildFolder", Copy){
+    dependsOn(tasks.named("jarMod"))
+    from(tasks.named("jarMod").flatMap{ it.archiveFile })
+    into(buildCopyDir)
+    rename{ _ -> "${modArchiveName}-${project.version}.jar" }
+    doFirst{
+        buildCopyDir.mkdirs()
+    }
+    doNotTrackState("Copying into workspace 构建 is a convenience step; state tracking is unnecessary here.")
+}
+
+tasks.named("zipMod").configure{
+    finalizedBy tasks.named("copyZipToDist")
     finalizedBy tasks.named("copyZipToBuildFolder")
+}
+
+tasks.named("jarMod").configure{
+    finalizedBy tasks.named("copyJarToDist")
+    finalizedBy tasks.named("copyJarToBuildFolder")
+}
+
+def isWindows = System.getProperty("os.name").toLowerCase(Locale.ROOT).contains("windows")
+
+def findD8 = {
+    def explicit = System.getenv("D8_PATH")
+    if(explicit){
+        def f = new File(explicit)
+        if(f.exists()) return f
+    }
+
+    def sdkRoot = System.getenv("ANDROID_SDK_ROOT") ?: System.getenv("ANDROID_HOME")
+    if(sdkRoot){
+        def buildToolsDir = new File(sdkRoot, "build-tools")
+        if(buildToolsDir.isDirectory()){
+            def toolName = isWindows ? "d8.bat" : "d8"
+            def candidates = (buildToolsDir.listFiles() ?: [])
+                .findAll{ it.isDirectory() }
+                .sort{ a, b -> b.name <=> a.name }
+
+            for(def dir : candidates){
+                def exe = new File(dir, toolName)
+                if(exe.exists()) return exe
+            }
+        }
+    }
+
+    // Local convenience: use checked-in Android command line tools in workspace root, if present.
+    if(isWindows){
+        def workspaceRoot = rootDir.parentFile
+        def matches = (workspaceRoot.listFiles() ?: [])
+            .findAll{ it.isDirectory() && it.name.startsWith("commandlinetools-win-") }
+            .sort{ a, b -> b.name <=> a.name }
+
+        for(def dir : matches){
+            def exe = new File(dir, "cmdline-tools/bin/d8.bat")
+            if(exe.exists()) return exe
+        }
+    }
+
+    return null
+}
+
+def androidDexOutDir = layout.buildDirectory.dir("d8").get().asFile
+
+tasks.register("d8InputJar", Jar){
+    group = "build"
+    description = "Builds a jar used only as input for D8 (no dist side effects)."
+    dependsOn tasks.named("classes")
+    archiveFileName = "${modArchiveName}-d8-input.jar"
+    destinationDirectory = layout.buildDirectory.dir("d8-input")
+    from(sourceSets.main.output)
+    from(runtimeClasspathContents)
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    exclude "META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA"
+}
+
+tasks.register("dexAndroid", Exec){
+    group = "build"
+    description = "Compiles Java bytecode into classes.dex for Mindustry Android mod loading."
+    dependsOn tasks.named("d8InputJar")
+
+    doFirst{
+        def d8 = findD8()
+        if(d8 == null){
+            throw new GradleException("D8 not found. Set ANDROID_SDK_ROOT/ANDROID_HOME or D8_PATH (or keep commandlinetools-win-* in workspace root on Windows).")
+        }
+        delete(androidDexOutDir)
+        androidDexOutDir.mkdirs()
+
+        def programJar = tasks.named("d8InputJar").get().archiveFile.get().asFile
+
+        commandLine d8.absolutePath
+        args "--min-api", "14", "--release", "--output", androidDexOutDir.absolutePath
+        args programJar.absolutePath
+    }
+}
+
+tasks.register("jarAndroid", Jar){
+    group = "build"
+    description = "Packages an Android-compatible mod JAR containing classes.dex."
+    dependsOn tasks.named("dexAndroid")
+
+    archiveFileName = "${modArchiveName}-android.jar"
+    destinationDirectory = layout.buildDirectory.dir("libs")
+
+    from(androidDexOutDir){
+        include "classes.dex"
+    }
+    from(sourceSets.main.output.resourcesDir)
+    from("README.md")
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+tasks.register("copyAndroidJarToDist", Copy){
+    dependsOn(tasks.named("jarAndroid"))
+    from(tasks.named("jarAndroid").flatMap{ it.archiveFile })
+    into(new File(project.projectDir, "dist"))
+    rename{ _ -> "${modArchiveName}-android.jar" }
+    doNotTrackState("Copying into dist is a convenience step; state tracking is unnecessary here.")
+}
+
+tasks.register("copyAndroidJarToBuildFolder", Copy){
+    dependsOn(tasks.named("jarAndroid"))
+    from(tasks.named("jarAndroid").flatMap{ it.archiveFile })
+    into(buildCopyDir)
+    rename{ _ -> "${modArchiveName}-${project.version}-android.jar" }
+    doFirst{
+        buildCopyDir.mkdirs()
+    }
+    doNotTrackState("Copying into workspace 构建 is a convenience step; state tracking is unnecessary here.")
+}
+
+tasks.named("jarAndroid").configure{
+    finalizedBy tasks.named("copyAndroidJarToDist")
+    finalizedBy tasks.named("copyAndroidJarToBuildFolder")
+}
+
+tasks.register("deploy"){
+    group = "build"
+    description = "Builds desktop zip/jar and android jar."
+    dependsOn tasks.named("zipMod")
+    dependsOn tasks.named("jarMod")
+    dependsOn tasks.named("jarAndroid")
 }

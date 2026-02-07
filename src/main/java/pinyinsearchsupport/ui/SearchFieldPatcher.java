@@ -11,6 +11,7 @@ import arc.scene.ui.TextField;
 import arc.struct.ObjectMap;
 import arc.struct.ObjectSet;
 import arc.struct.Seq;
+import arc.util.Timer;
 import mindustry.Vars;
 import mindustry.gen.Icon;
 import pinyinsearchsupport.PinyinSearchSupportMod;
@@ -21,6 +22,7 @@ import java.util.Locale;
 public class SearchFieldPatcher{
     private final ObjectSet<TextField> patched = new ObjectSet<>();
     private final ObjectMap<TextField, SearchTarget> targetCache = new ObjectMap<>();
+    private final ObjectMap<TextField, Timer.Task> pendingFilters = new ObjectMap<>();
 
     public void patchNow(){
         if(Vars.headless || Core.scene == null || Core.scene.root == null) return;
@@ -33,6 +35,7 @@ public class SearchFieldPatcher{
             }
         }
         for(TextField field : stale){
+            cancelPendingFilter(field);
             patched.remove(field);
             targetCache.remove(field);
         }
@@ -101,58 +104,73 @@ public class SearchFieldPatcher{
     }
 
     private void patchField(TextField field){
-        // We rely on programmatic setText not firing ChangeEvent.
-        field.setProgrammaticChangeEvents(false);
-
         ChangeListener hook = new ChangeListener(){
-            private boolean reentry;
-
             @Override
             public void changed(ChangeEvent event, Element actor){
-                if(reentry) return;
                 if(actor != field) return;
+                cancelPendingFilter(field);
                 if(!Core.settings.getBool(PinyinSearchSupportMod.keyEnabled, true)) return;
 
-                String raw = field.getText();
-                if(raw == null || raw.isEmpty()) return;
-                if(!PinyinSupport.looksLikePinyinQuery(raw)) return;
-
-                // If we can't find a target list, don't change behavior.
                 SearchTarget target = getOrFindTarget(field);
                 if(target == null) return;
 
-                int cursor = field.getCursorPosition();
-                String rawFinal = raw;
-                SearchTarget targetFinal = target;
-
-                // Make the built-in search callback see an empty query so it rebuilds the full list.
-                reentry = true;
-                try{
-                    field.setText("");
-                }finally{
-                    reentry = false;
+                String raw = field.getText();
+                if(raw == null || raw.isEmpty()){
+                    Core.app.post(() -> {
+                        SearchTarget current = getOrFindTarget(field);
+                        if(current != null) current.captureCurrentAsBase();
+                    });
+                    return;
                 }
 
-                Core.app.post(() -> {
-                    // Restore what the user typed.
-                    reentry = true;
-                    try{
-                        field.setText(rawFinal);
-                        field.setCursorPosition(Math.min(cursor, rawFinal.length()));
-                    }finally{
-                        reentry = false;
-                    }
+                if(!PinyinSupport.looksLikePinyinQuery(raw)) return;
 
-                    // Apply pinyin-aware filtering on the rebuilt list.
-                    if(!Core.settings.getBool(PinyinSearchSupportMod.keyEnabled, true)) return;
-                    targetFinal.applyFilter(rawFinal, Core.settings.getBool(PinyinSearchSupportMod.keyFuzzy, true));
-                });
+                target.captureCurrentAsBaseIfMissing();
+
+                int delayMs = Math.max(0, Core.settings.getInt(PinyinSearchSupportMod.keyDelayMs, PinyinSearchSupportMod.defaultDelayMs));
+                String query = raw;
+
+                Timer.Task task = Timer.schedule(new Timer.Task(){
+                    @Override
+                    public void run(){
+                        Core.app.post(() -> {
+                            if(pendingFilters.get(field) != this) return;
+                            pendingFilters.remove(field);
+
+                            if(field.getScene() == null) return;
+                            if(!Core.settings.getBool(PinyinSearchSupportMod.keyEnabled, true)) return;
+
+                            String live = field.getText();
+                            if(live == null || live.isEmpty() || !live.equals(query)) return;
+                            if(!PinyinSupport.looksLikePinyinQuery(live)) return;
+
+                            SearchTarget latest = getOrFindTarget(field);
+                            if(latest == null) return;
+
+                            latest.applyFilter(live, Core.settings.getBool(PinyinSearchSupportMod.keyFuzzy, true));
+                        });
+                    }
+                }, delayMs / 1000f);
+
+                pendingFilters.put(field, task);
             }
         };
 
         // Ensure this runs before the default Table.field change listener.
         Seq<EventListener> listeners = field.getListeners();
         listeners.insert(0, hook);
+
+        SearchTarget target = getOrFindTarget(field);
+        if(target != null){
+            target.captureCurrentAsBaseIfMissing();
+        }
+    }
+
+    private void cancelPendingFilter(TextField field){
+        Timer.Task task = pendingFilters.remove(field);
+        if(task != null){
+            task.cancel();
+        }
     }
 
     private SearchTarget getOrFindTarget(TextField field){
