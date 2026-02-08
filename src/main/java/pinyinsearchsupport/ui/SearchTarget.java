@@ -1,10 +1,12 @@
 package pinyinsearchsupport.ui;
 
+import arc.Core;
 import arc.scene.Element;
 import arc.scene.Group;
 import arc.scene.ui.ScrollPane;
 import arc.scene.ui.TextField;
 import arc.scene.ui.layout.Cell;
+import arc.scene.ui.layout.Scl;
 import arc.scene.ui.layout.Table;
 import arc.struct.Seq;
 import pinyinsearchsupport.PinyinSupport;
@@ -91,7 +93,7 @@ public class SearchTarget{
         }
     }
 
-    public void applyFilter(String rawQuery, boolean fuzzy){
+    public void applyFilter(String rawQuery, boolean fuzzy, boolean schematicGridMode){
         if(!isValid()) return;
         if(rawQuery == null) rawQuery = "";
 
@@ -106,6 +108,8 @@ public class SearchTarget{
         table.clearChildren();
 
         int added = 0;
+        int cols = schematicGridMode ? Math.max((int)(Core.graphics.getWidth() / Scl.scl(230f)), 1) : 1;
+        int col = 0;
         for(int i = 0; i < baseEntries.size; i++){
             Entry entry = baseEntries.get(i);
             Element child = entry.element;
@@ -121,7 +125,11 @@ public class SearchTarget{
                 cell.set(entry.constraints);
                 added++;
 
-                if(entry.endRow){
+                if(schematicGridMode){
+                    if(++col % cols == 0){
+                        table.row();
+                    }
+                }else if(entry.endRow){
                     table.row();
                 }
             }

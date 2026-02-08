@@ -1,5 +1,10 @@
 # PinyinSearchSupport Changelog
 
+## v1.1.1
+
+- 蓝图搜索界面特化：按原版列数重排过滤结果，修复拼音搜索后蓝图卡片错位/挤出屏幕问题。
+- 构建产物命名统一为 `PinyinSearchSupport-V<version>` 风格，安卓包后缀保持 `-android.jar`。
+
 ## v1.1.0
 
 - 修复拼音搜索导致列表滚动错位的问题（如蓝图搜索结果可能跑出屏幕）。

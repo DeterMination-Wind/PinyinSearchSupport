@@ -147,7 +147,11 @@ public class SearchFieldPatcher{
                             SearchTarget latest = getOrFindTarget(field);
                             if(latest == null) return;
 
-                            latest.applyFilter(live, Core.settings.getBool(PinyinSearchSupportMod.keyFuzzy, true));
+                            latest.applyFilter(
+                                live,
+                                Core.settings.getBool(PinyinSearchSupportMod.keyFuzzy, true),
+                                isSchematicSearchField(field)
+                            );
                         });
                     }
                 }, delayMs / 1000f);
@@ -171,6 +175,22 @@ public class SearchFieldPatcher{
         if(task != null){
             task.cancel();
         }
+    }
+
+    private static boolean isSchematicSearchField(TextField field){
+        if(field == null) return false;
+
+        String msg = field.getMessageText();
+        if(msg != null && !msg.isEmpty()){
+            String schem = Core.bundle.get("schematic.search", "");
+            if(msg.equals(schem)) return true;
+        }
+
+        if(field.name != null){
+            return field.name.toLowerCase(Locale.ROOT).contains("schem");
+        }
+
+        return false;
     }
 
     private SearchTarget getOrFindTarget(TextField field){

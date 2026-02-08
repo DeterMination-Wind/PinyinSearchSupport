@@ -3,7 +3,7 @@ plugins{
 }
 
 group = "pinyinsearchsupport"
-version = "1.1.0"
+version = "1.1.1"
 
 java{
     sourceCompatibility = JavaVersion.VERSION_1_8
@@ -38,6 +38,7 @@ tasks.withType(JavaCompile).configureEach{
 }
 
 def modArchiveName = "PinyinSearchSupport"
+def versionLabel = "V${project.version}"
 def buildCopyDir = new File(rootDir.parentFile, "构建")
 
 def runtimeClasspathContents = {
@@ -90,7 +91,7 @@ tasks.register("copyZipToBuildFolder", Copy){
     dependsOn(tasks.named("zipMod"))
     from(tasks.named("zipMod").flatMap{ it.archiveFile })
     into(buildCopyDir)
-    rename{ _ -> "${modArchiveName}-${project.version}.zip" }
+    rename{ _ -> "${modArchiveName}-${versionLabel}.zip" }
     doFirst{
         buildCopyDir.mkdirs()
     }
@@ -101,7 +102,7 @@ tasks.register("copyJarToBuildFolder", Copy){
     dependsOn(tasks.named("jarMod"))
     from(tasks.named("jarMod").flatMap{ it.archiveFile })
     into(buildCopyDir)
-    rename{ _ -> "${modArchiveName}-${project.version}.jar" }
+    rename{ _ -> "${modArchiveName}-${versionLabel}.jar" }
     doFirst{
         buildCopyDir.mkdirs()
     }
@@ -222,7 +223,7 @@ tasks.register("copyAndroidJarToBuildFolder", Copy){
     dependsOn(tasks.named("jarAndroid"))
     from(tasks.named("jarAndroid").flatMap{ it.archiveFile })
     into(buildCopyDir)
-    rename{ _ -> "${modArchiveName}-${project.version}-android.jar" }
+    rename{ _ -> "${modArchiveName}-${versionLabel}-android.jar" }
     doFirst{
         buildCopyDir.mkdirs()
     }

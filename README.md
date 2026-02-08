@@ -23,6 +23,6 @@ Generated files:
 
 When built locally, the artifact is also copied to the workspace-level `构建` folder as:
 
-- `PinyinSearchSupport-<version>.zip`
-- `PinyinSearchSupport-<version>.jar`
-- `PinyinSearchSupport-<version>-android.jar`
+- `PinyinSearchSupport-V<version>.zip`
+- `PinyinSearchSupport-V<version>.jar`
+- `PinyinSearchSupport-V<version>-android.jar`
