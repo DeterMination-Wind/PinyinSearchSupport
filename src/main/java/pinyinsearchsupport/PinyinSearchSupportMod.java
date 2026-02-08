@@ -25,11 +25,14 @@ public class PinyinSearchSupportMod extends Mod{
         Events.on(ClientLoadEvent.class, e -> {
             if(headless) return;
 
+            GithubUpdateCheck.applyDefaults();
             registerSettings();
 
             // Patch search fields that already exist, and keep patching newly created ones.
             patcher.patchNow();
             Timer.schedule(() -> patcher.patchNow(), 0.25f, 0.5f);
+
+            GithubUpdateCheck.checkOnce();
         });
     }
 
@@ -42,6 +45,8 @@ public class PinyinSearchSupportMod extends Mod{
             st.checkPref(keyEnabled, true);
             st.checkPref(keyFuzzy, true);
             st.sliderPref(keyDelayMs, defaultDelayMs, 0, 1500, 10, value -> value + " ms");
+            st.checkPref(GithubUpdateCheck.enabledKey(), true);
+            st.checkPref(GithubUpdateCheck.showDialogKey(), true);
         });
     }
 }

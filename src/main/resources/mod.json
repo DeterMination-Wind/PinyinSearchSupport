@@ -3,7 +3,7 @@
   "displayName": "PinyinSearchSupport / 拼音搜索支持",
   "author": "DeterMination",
   "description": "Type pinyin in search fields to match Chinese names. / 在搜索框输入拼音匹配中文项。",
-  "version": "1.1.2",
+  "version": "1.2.0",
   "minGameVersion": 154,
   "java": true,
   "main": "pinyinsearchsupport.PinyinSearchSupportMod",
