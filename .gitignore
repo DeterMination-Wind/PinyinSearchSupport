@@ -1,3 +1,5 @@
 /.gradle/
 /build/
 /dist/
+# local-only override for compile verification (JitPack v154.3 is broken)
+/settings.gradle
