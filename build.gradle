@@ -19,8 +19,11 @@ def mindustryVersion = (findProperty("mindustryVersion") ?: "v155.4").toString()
 
 configurations.configureEach{
     resolutionStrategy.eachDependency{ details ->
-        // MindustryJitpack v154.3 references Arc commit coordinates that are no longer available on JitPack.
-        if(details.requested.group == "com.github.Anuken.Arc" && details.requested.version == "ec5df18e54"){
+        // MindustryJitpack POMs reference Arc by raw commit hash (e.g. ec5df18e54 for v154.3,
+        // a3c7d2cbf3 for v155.4). JitPack does not publish Arc artifacts at those commit
+        // coordinates, so transitive resolution fails. Redirect any non-tag Arc coordinate
+        // to the matching tag we explicitly target.
+        if(details.requested.group == "com.github.Anuken.Arc" && !details.requested.version.startsWith("v")){
             details.useVersion(mindustryVersion)
             details.because("Use published Arc tag artifacts for stable CI dependency resolution")
         }
