@@ -15,7 +15,7 @@ repositories{
     maven{ url "https://jitpack.io" }
 }
 
-def mindustryVersion = (findProperty("mindustryVersion") ?: "v154.3").toString()
+def mindustryVersion = (findProperty("mindustryVersion") ?: "v154.2").toString()
 
 configurations.configureEach{
     resolutionStrategy.eachDependency{ details ->
