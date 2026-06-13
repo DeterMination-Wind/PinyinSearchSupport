@@ -4,7 +4,7 @@
   "author": "DeterMination",
   "repo": "DeterMination-Wind/PinyinSearchSupport",
   "description": "Type pinyin in search fields to match Chinese names. / 在搜索框输入拼音匹配中文项。",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "minGameVersion": 154,
   "java": true,
   "main": "pinyinsearchsupport.PinyinSearchSupportMod",

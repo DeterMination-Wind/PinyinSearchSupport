@@ -2,6 +2,9 @@ package pinyinsearchsupport.ui;
 
 import arc.scene.Element;
 import arc.scene.Group;
+import arc.scene.ui.Button;
+import arc.scene.ui.Image;
+import arc.scene.ui.Label;
 import arc.scene.ui.ScrollPane;
 import arc.scene.ui.TextField;
 import arc.scene.ui.layout.Cell;
@@ -54,8 +57,9 @@ public final class ScopeTree{
             if(!(w instanceof Table)) continue;
             Table t = (Table)w;
             if(t.getCells().size < 2) continue;
-            // skip horizontal chip rows: height < 80 and not scrolling vertically
-            if(sp.getHeight() < 80f && !sp.isScrollingDisabledY()) continue;
+            // Skip horizontal chip/filter rows without excluding real result
+            // panes that happen to disable Y scrolling before layout.
+            if(sp.getHeight() > 0f && sp.getHeight() < 80f) continue;
             candidates.add(sp);
         }
 
@@ -118,17 +122,27 @@ public final class ScopeTree{
         Seq<Cell> cells = t.getCells();
         if(cells.isEmpty()) return LayoutMode.LIST;
 
-        // Check if most top-level actors are Tables (SECTIONED)
+        int actorCount = 0;
+        int buttonCount = 0;
         int tableCount = 0;
+        boolean hasMultiCellRow = false;
         for(int i = 0; i < cells.size; i++){
-            if(cells.get(i).get() instanceof Table) tableCount++;
+            Element actor = cells.get(i).get();
+            if(actor != null){
+                actorCount++;
+                if(actor instanceof Button) buttonCount++;
+                if(actor instanceof Table) tableCount++;
+            }
+            if(i < cells.size - 1 && !cells.get(i).isEndRow()) hasMultiCellRow = true;
         }
-        if(tableCount > cells.size / 2) return LayoutMode.SECTIONED;
 
-        // Check for GRID: any consecutive cells without endRow
-        for(int i = 0; i < cells.size - 1; i++){
-            if(!cells.get(i).isEndRow()) return LayoutMode.GRID;
-        }
+        // Buttons are Tables in Arc. Treat button-heavy/card layouts as grids
+        // before checking for section tables, or map/schematic cards get replayed
+        // with their original row breaks and leave gaps after filtering.
+        if(buttonCount > 0 && buttonCount * 2 >= Math.max(1, actorCount)) return LayoutMode.GRID;
+        if(hasMultiCellRow) return LayoutMode.GRID;
+        if(tableCount > 0 && !hasMultiCellRow) return LayoutMode.SECTIONED;
+        if(tableCount > actorCount / 2) return LayoutMode.SECTIONED;
         return LayoutMode.LIST;
     }
 
@@ -153,31 +167,11 @@ public final class ScopeTree{
         void filter(String query, MatchEngine.MatchOptions opts){
             if(!isValid()) return;
 
-            Seq<Cell> cells = table.getCells();
-            if(cells.isEmpty()) return;
-
-            // Snapshot all cells
-            int n = cells.size;
-            Element[] actors = new Element[n];
-            CellSnapshot[] snaps = new CellSnapshot[n];
-            boolean[] endRows = new boolean[n];
-            for(int i = 0; i < n; i++){
-                Cell<?> c = cells.get(i);
-                actors[i] = c.get();
-                snaps[i] = CellSnapshot.capture(c);
-                endRows[i] = c.isEndRow();
-            }
-
             float scrollY = pane.getScrollY();
 
-            table.clearChildren();
-
-            if(mode == LayoutMode.SECTIONED){
-                filterSectioned(actors, snaps, endRows, n, query, opts);
-            }else if(mode == LayoutMode.GRID){
-                filterGrid(actors, snaps, endRows, n, query, opts);
-            }else{
-                filterList(actors, snaps, endRows, n, query, opts);
+            int matches = filterTable(table, mode, query, opts);
+            if(matches == 0){
+                table.add("@none.found").padLeft(54f).padTop(10f);
             }
 
             table.invalidateHierarchy();
@@ -191,99 +185,176 @@ public final class ScopeTree{
             pane.updateVisualScroll();
         }
 
-        private void filterList(Element[] actors, CellSnapshot[] snaps, boolean[] endRows, int n,
-                                String query, MatchEngine.MatchOptions opts){
-            int added = 0;
+        private int filterTable(Table target, LayoutMode layout, String query, MatchEngine.MatchOptions opts){
+            Seq<Cell> cells = target.getCells();
+            if(cells.isEmpty()) return 0;
+
+            int n = cells.size;
+            Element[] actors = new Element[n];
+            CellSnapshot[] snaps = new CellSnapshot[n];
+            boolean[] endRows = new boolean[n];
             for(int i = 0; i < n; i++){
-                Element actor = actors[i];
-                if(actor == null) continue;
-                String text = SearchTextExtractor.extract(actor);
-                boolean keep = text == null || MatchEngine.accepts(text, query, opts);
-                if(keep){
-                    Cell<?> cell = table.add(actor);
-                    if(snaps[i] != null) snaps[i].applyTo(cell);
-                    if(endRows[i]) table.row();
-                    added++;
-                }
+                Cell<?> c = cells.get(i);
+                actors[i] = c.get();
+                snaps[i] = CellSnapshot.capture(c);
+                endRows[i] = c.isEndRow();
             }
-            if(added == 0){
-                table.add("@none.found").padLeft(54f).padTop(10f);
+
+            target.clearChildren();
+
+            if(layout == LayoutMode.SECTIONED){
+                return filterSectioned(target, actors, snaps, endRows, n, query, opts);
+            }else if(layout == LayoutMode.GRID){
+                return filterGrid(target, actors, snaps, endRows, n, query, opts);
+            }else{
+                return filterList(target, actors, snaps, endRows, n, query, opts);
             }
         }
 
-        private void filterGrid(Element[] actors, CellSnapshot[] snaps, boolean[] endRows, int n,
-                                String query, MatchEngine.MatchOptions opts){
-            // Detect column count from original layout
-            int cols = 1;
+        private int filterList(Table target, Element[] actors, CellSnapshot[] snaps, boolean[] endRows, int n,
+                               String query, MatchEngine.MatchOptions opts){
+            int matches = 0;
             for(int i = 0; i < n; i++){
-                if(endRows[i]){ cols = i + 1; break; }
+                Element actor = actors[i];
+                if(actor == null) continue;
+                if(matchesActor(actor, query, opts)){
+                    addOriginal(target, actors, snaps, endRows, i);
+                    matches++;
+                }
             }
-            if(cols < 1) cols = 1;
+            return matches;
+        }
 
-            int added = 0;
+        private int filterGrid(Table target, Element[] actors, CellSnapshot[] snaps, boolean[] endRows, int n,
+                               String query, MatchEngine.MatchOptions opts){
+            int cols = detectColumns(endRows, n);
+
+            int matches = 0;
             int col = 0;
             for(int i = 0; i < n; i++){
                 Element actor = actors[i];
                 if(actor == null) continue;
-                String text = SearchTextExtractor.extract(actor);
-                boolean keep = text == null || MatchEngine.accepts(text, query, opts);
-                if(keep){
-                    Cell<?> cell = table.add(actor);
+                if(matchesActor(actor, query, opts)){
+                    Cell<?> cell = target.add(actor);
                     if(snaps[i] != null) snaps[i].applyTo(cell);
+                    cell.colspan(1);
                     col++;
                     if(col % cols == 0){
-                        table.row();
+                        target.row();
                         col = 0;
                     }
-                    added++;
+                    matches++;
                 }
             }
-            if(col > 0) table.row();
-            if(added == 0){
-                table.add("@none.found").padLeft(54f).padTop(10f);
-            }
+            if(col > 0) target.row();
+            return matches;
         }
 
-        private void filterSectioned(Element[] actors, CellSnapshot[] snaps, boolean[] endRows, int n,
-                                     String query, MatchEngine.MatchOptions opts){
-            // Each top-level actor that is a Table is a section; recurse into it
-            int added = 0;
+        private int filterSectioned(Table target, Element[] actors, CellSnapshot[] snaps, boolean[] endRows, int n,
+                                    String query, MatchEngine.MatchOptions opts){
+            int matches = 0;
+            int[] pendingHeaders = new int[n];
+            int pendingCount = 0;
+
             for(int i = 0; i < n; i++){
                 Element actor = actors[i];
                 if(actor == null) continue;
-                if(actor instanceof Table){
+
+                if(actor instanceof Table && !(actor instanceof Button)){
                     Table section = (Table)actor;
-                    boolean sectionHasMatch = filterSectionTable(section, query, opts);
-                    if(sectionHasMatch){
-                        Cell<?> cell = table.add(actor);
-                        if(snaps[i] != null) snaps[i].applyTo(cell);
-                        if(endRows[i]) table.row();
-                        added++;
+
+                    if(isHeaderTable(section)){
+                        pendingHeaders[pendingCount++] = i;
+                        continue;
                     }
+
+                    if(isControlTable(section) && pendingCount == 0 && matches == 0){
+                        addOriginal(target, actors, snaps, endRows, i);
+                        continue;
+                    }
+
+                    int childMatches = filterTable(section, detectMode(section), query, opts);
+                    if(childMatches > 0){
+                        for(int p = 0; p < pendingCount; p++){
+                            addOriginal(target, actors, snaps, endRows, pendingHeaders[p]);
+                        }
+                        pendingCount = 0;
+                        addOriginal(target, actors, snaps, endRows, i);
+                        matches += childMatches;
+                    }else{
+                        pendingCount = 0;
+                    }
+                }else if(actor instanceof Button && matchesActor(actor, query, opts)){
+                    for(int p = 0; p < pendingCount; p++){
+                        addOriginal(target, actors, snaps, endRows, pendingHeaders[p]);
+                    }
+                    pendingCount = 0;
+                    addOriginal(target, actors, snaps, endRows, i);
+                    matches++;
                 }else{
-                    // non-table cell (e.g. section header label): keep if any section below matches
-                    // we keep it unconditionally to preserve headers
-                    Cell<?> cell = table.add(actor);
-                    if(snaps[i] != null) snaps[i].applyTo(cell);
-                    if(endRows[i]) table.row();
-                    added++;
+                    pendingHeaders[pendingCount++] = i;
                 }
             }
-            if(added == 0){
-                table.add("@none.found").padLeft(54f).padTop(10f);
-            }
+            return matches;
         }
 
-        private boolean filterSectionTable(Table section, String query, MatchEngine.MatchOptions opts){
+        private Cell<?> addOriginal(Table target, Element[] actors, CellSnapshot[] snaps, boolean[] endRows, int index){
+            Cell<?> cell = target.add(actors[index]);
+            if(snaps[index] != null) snaps[index].applyTo(cell);
+            if(endRows[index]) target.row();
+            return cell;
+        }
+
+        private boolean matchesActor(Element actor, String query, MatchEngine.MatchOptions opts){
+            String text = SearchTextExtractor.extract(actor);
+            return text != null && MatchEngine.accepts(text, query, opts);
+        }
+
+        private int detectColumns(boolean[] endRows, int n){
+            int cols = 1;
+            int current = 0;
+            for(int i = 0; i < n; i++){
+                current++;
+                if(endRows[i]){
+                    if(current > cols) cols = current;
+                    current = 0;
+                }
+            }
+            if(current > cols) cols = current;
+            return Math.max(1, cols);
+        }
+
+        private boolean isControlTable(Table section){
             Seq<Cell> cells = section.getCells();
             if(cells.isEmpty()) return false;
+            int actors = 0;
+            int buttons = 0;
             for(int i = 0; i < cells.size; i++){
                 Element actor = cells.get(i).get();
                 if(actor == null) continue;
-                String text = SearchTextExtractor.extract(actor);
-                if(text == null || MatchEngine.accepts(text, query, opts)) return true;
+                actors++;
+                if(actor instanceof Button) buttons++;
             }
-            return false;
+            return buttons > 0 && buttons * 2 >= Math.max(1, actors);
+        }
+
+        private boolean isHeaderTable(Table section){
+            Seq<Cell> cells = section.getCells();
+            if(cells.isEmpty() || cells.size > 4) return false;
+
+            boolean hasLabel = false;
+            for(int i = 0; i < cells.size; i++){
+                Element actor = cells.get(i).get();
+                if(actor == null) continue;
+                if(actor instanceof Label){
+                    hasLabel = true;
+                }else if(actor instanceof Image){
+                    // separator line
+                }else{
+                    return false;
+                }
+            }
+            return hasLabel;
         }
     }
 }

@@ -37,7 +37,10 @@ public final class SearchTextExtractor{
 
         if(element instanceof Label){
             String t = ((Label)element).getText().toString();
-            return (t != null && !t.isEmpty()) ? t : null;
+            StringBuilder sb = new StringBuilder();
+            appendText(sb, t);
+            appendText(sb, extractTooltip(element));
+            return sb.length() > 0 ? sb.toString() : null;
         }
 
         if(element instanceof Image){
@@ -46,25 +49,17 @@ public final class SearchTextExtractor{
         }
 
         if(element instanceof Button){
-            // collect label text from children + tooltip
+            // collect child text + tooltip
             StringBuilder sb = new StringBuilder();
             appendGroupText((Group)element, sb);
-            String tip = extractTooltip(element);
-            if(tip != null && !tip.isEmpty()){
-                if(sb.length() > 0) sb.append(' ');
-                sb.append(tip);
-            }
+            appendText(sb, extractTooltip(element));
             return sb.length() > 0 ? sb.toString() : null;
         }
 
         if(element instanceof Group){
             StringBuilder sb = new StringBuilder();
             appendGroupText((Group)element, sb);
-            String tip = extractTooltip(element);
-            if(tip != null && !tip.isEmpty()){
-                if(sb.length() > 0) sb.append(' ');
-                sb.append(tip);
-            }
+            appendText(sb, extractTooltip(element));
             return sb.length() > 0 ? sb.toString() : null;
         }
 
@@ -75,17 +70,14 @@ public final class SearchTextExtractor{
     private static void appendGroupText(Group group, StringBuilder sb){
         Seq<Element> children = group.getChildren();
         for(int i = 0; i < children.size; i++){
-            Element child = children.get(i);
-            if(child instanceof Label){
-                String t = ((Label)child).getText().toString();
-                if(t != null && !t.isEmpty()){
-                    if(sb.length() > 0) sb.append(' ');
-                    sb.append(t);
-                }
-            }else if(child instanceof Group){
-                appendGroupText((Group)child, sb);
-            }
+            appendText(sb, extract(children.get(i)));
         }
+    }
+
+    private static void appendText(StringBuilder sb, String text){
+        if(text == null || text.isEmpty()) return;
+        if(sb.length() > 0) sb.append(' ');
+        sb.append(text);
     }
 
     private static String extractTooltip(Element element){

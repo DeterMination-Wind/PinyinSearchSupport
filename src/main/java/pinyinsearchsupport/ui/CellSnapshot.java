@@ -62,6 +62,13 @@ public final class CellSnapshot{
                     // skip back-references and actor — actor is re-set by add()
                     if("element".equals(name) || "actor".equals(name)) continue;
                     if("tableLayout".equals(name) || "table".equals(name)) continue;
+                    // skip computed layout positions / internal bookkeeping
+                    if("elementX".equals(name) || "elementY".equals(name) ||
+                       "elementWidth".equals(name) || "elementHeight".equals(name)) continue;
+                    if("endRow".equals(name) || "column".equals(name) || "row".equals(name)) continue;
+                    if("cellAboveIndex".equals(name)) continue;
+                    if("computedPadTop".equals(name) || "computedPadLeft".equals(name) ||
+                       "computedPadBottom".equals(name) || "computedPadRight".equals(name)) continue;
                     f.setAccessible(true);
                     keep.add(f);
                 }
