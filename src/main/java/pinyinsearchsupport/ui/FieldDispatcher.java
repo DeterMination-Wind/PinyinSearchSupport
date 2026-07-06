@@ -195,8 +195,20 @@ public final class FieldDispatcher{
         String typed = field.getText();
         if(typed == null) typed = "";
 
-        if(typed.isEmpty() || isModsSearchField(field)){
+        if(typed.isEmpty() || !shouldUsePinyinSearch(typed) || isModsSearchField(field)){
             fireListeners(field, list);
+            return;
+        }
+
+        MatchEngine.MatchOptions opts = new MatchEngine.MatchOptions(
+            Core.settings.getBool(PinyinSearchSupportMod.keyFuzzy, true),
+            Core.settings.getBool(PinyinSearchSupportMod.keyInitials, true),
+            Core.settings.getBool(PinyinSearchSupportMod.keyHeteronym, true)
+        );
+
+        if(SectorListAdapter.isSectorSearch(field)){
+            fireListeners(field, list);
+            SectorListAdapter.filter(field, typed, opts);
             return;
         }
 
@@ -222,16 +234,20 @@ public final class FieldDispatcher{
         }
         if(scope == null || !scope.isValid()) return;
 
-        MatchEngine.MatchOptions opts = new MatchEngine.MatchOptions(
-            Core.settings.getBool(PinyinSearchSupportMod.keyFuzzy, true),
-            Core.settings.getBool(PinyinSearchSupportMod.keyInitials, true),
-            Core.settings.getBool(PinyinSearchSupportMod.keyHeteronym, true)
-        );
         try{
             scope.postFilter(typed, opts);
         }catch(Throwable t){
             Log.warn("[PinyinSearchSupport] post filter failed: @", t.getMessage());
         }
+    }
+
+    private static boolean shouldUsePinyinSearch(String query){
+        if(query == null || query.isEmpty()) return false;
+        for(int i = 0; i < query.length(); i++){
+            char c = query.charAt(i);
+            if(Character.isLetter(c) || pinyinsearchsupport.match.PinyinIndex.isCjk(c)) return true;
+        }
+        return false;
     }
 
     private boolean isModsSearchField(TextField field){
