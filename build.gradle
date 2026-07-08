@@ -31,8 +31,12 @@ configurations.configureEach{
 }
 
 dependencies{
+    def explicitMindustryJar = (findProperty("mindustryJar") ?: System.getenv("MINDUSTRY_JAR"))?.toString()
+
     // Prefer building against a local Mindustry source checkout (as an included subproject).
-    if(rootProject.findProject(":core") != null){
+    if(explicitMindustryJar){
+        compileOnly files(explicitMindustryJar)
+    }else if(rootProject.findProject(":core") != null){
         compileOnly project(":core")
     }else{
         // Standalone build: fetch Mindustry core from JitPack.
