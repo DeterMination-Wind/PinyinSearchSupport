@@ -3,7 +3,7 @@ plugins{
 }
 
 group = "pinyinsearchsupport"
-version = "2.2.0"
+version = "2.3.0"
 
 java{
     sourceCompatibility = JavaVersion.VERSION_1_8
@@ -15,7 +15,7 @@ repositories{
     maven{ url "https://jitpack.io" }
 }
 
-def mindustryVersion = (findProperty("mindustryVersion") ?: "v155.4").toString()
+def mindustryVersion = (findProperty("mindustryVersion") ?: "v159").toString()
 
 configurations.configureEach{
     resolutionStrategy.eachDependency{ details ->
@@ -52,8 +52,9 @@ tasks.withType(JavaCompile).configureEach{
 }
 
 def modArchiveName = "PinyinSearchSupport"
-def versionLabel = "V${project.version}"
+def versionLabel = project.version == "0.0.0" ? "dev" : "V${project.version}"
 def buildCopyDir = new File(rootDir.parentFile, "构建/${modArchiveName}")
+def isDevBuild = project.version == "0.0.0"
 
 def runtimeClasspathContents = {
     configurations.runtimeClasspath.collect{ it.isDirectory() ? it : zipTree(it) }
@@ -67,6 +68,10 @@ tasks.register("zipMod", Zip){
     destinationDirectory = layout.buildDirectory.dir("libs")
     from(sourceSets.main.output)
     from(runtimeClasspathContents)
+    from(projectDir){
+        include "mod.json"
+        include "mod.hjson"
+    }
     from("README.md")
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     exclude "META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA"
@@ -80,6 +85,10 @@ tasks.register("jarMod", Jar){
     destinationDirectory = layout.buildDirectory.dir("libs")
     from(sourceSets.main.output)
     from(runtimeClasspathContents)
+    from(projectDir){
+        include "mod.json"
+        include "mod.hjson"
+    }
     from("README.md")
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     exclude "META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA"
@@ -124,12 +133,12 @@ tasks.register("copyJarToBuildFolder", Copy){
 }
 
 tasks.named("zipMod").configure{
-    finalizedBy tasks.named("copyZipToDist")
+    if(!isDevBuild) finalizedBy tasks.named("copyZipToDist")
     finalizedBy tasks.named("copyZipToBuildFolder")
 }
 
 tasks.named("jarMod").configure{
-    finalizedBy tasks.named("copyJarToDist")
+    if(!isDevBuild) finalizedBy tasks.named("copyJarToDist")
     finalizedBy tasks.named("copyJarToBuildFolder")
 }
 
@@ -221,6 +230,10 @@ tasks.register("jarAndroid", Jar){
         include "classes.dex"
     }
     from(sourceSets.main.output.resourcesDir)
+    from(projectDir){
+        include "mod.json"
+        include "mod.hjson"
+    }
     from("README.md")
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
@@ -245,7 +258,7 @@ tasks.register("copyAndroidJarToBuildFolder", Copy){
 }
 
 tasks.named("jarAndroid").configure{
-    finalizedBy tasks.named("copyAndroidJarToDist")
+    if(!isDevBuild) finalizedBy tasks.named("copyAndroidJarToDist")
     finalizedBy tasks.named("copyAndroidJarToBuildFolder")
 }
 
@@ -320,12 +333,12 @@ tasks.register("copyMergedZipToBuildFolder", Copy){
 }
 
 tasks.named("jarMerged").configure{
-    finalizedBy tasks.named("copyMergedJarToDist")
+    if(!isDevBuild) finalizedBy tasks.named("copyMergedJarToDist")
     finalizedBy tasks.named("copyMergedJarToBuildFolder")
 }
 
 tasks.named("zipMerged").configure{
-    finalizedBy tasks.named("copyMergedZipToDist")
+    if(!isDevBuild) finalizedBy tasks.named("copyMergedZipToDist")
     finalizedBy tasks.named("copyMergedZipToBuildFolder")
 }
 

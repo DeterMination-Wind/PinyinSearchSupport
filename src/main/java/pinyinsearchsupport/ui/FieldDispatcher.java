@@ -30,6 +30,7 @@ public final class FieldDispatcher{
     private final ObjectSet<TextField> patched = new ObjectSet<>();
     private final ObjectMap<TextField, Seq<ChangeListener>> vanillas = new ObjectMap<>();
     private final ObjectMap<TextField, Timer.Task> debounces = new ObjectMap<>();
+    private final ObjectMap<TextField, ChangeListener> proxies = new ObjectMap<>();
     private final ObjectSet<String> bundleSearchKeys = new ObjectSet<>();
     private final ObjectSet<String> modsContextTokens = new ObjectSet<>();
     private final ObjectSet<String> modsExactTokens = new ObjectSet<>();
@@ -46,6 +47,7 @@ public final class FieldDispatcher{
         }
         for(TextField f : stale){
             cancelDebounce(f);
+            proxies.remove(f);
             patched.remove(f);
             vanillas.remove(f);
         }
@@ -138,6 +140,7 @@ public final class FieldDispatcher{
         Seq<ChangeListener> existing = new Seq<>();
         for(int i = 0; i < listeners.size; i++){
             EventListener l = listeners.get(i);
+            if(l == proxies.get(field)) continue;
             if(l instanceof ChangeListener) existing.add((ChangeListener)l);
         }
         if(existing.isEmpty()) return;
@@ -155,6 +158,7 @@ public final class FieldDispatcher{
                 self.onChange(field);
             }
         };
+        proxies.put(field, proxy);
         field.addListener(proxy);
     }
 
@@ -209,6 +213,13 @@ public final class FieldDispatcher{
         if(SectorListAdapter.isSectorSearch(field)){
             fireListeners(field, list);
             SectorListAdapter.filter(field, typed, opts);
+            return;
+        }
+
+        if(SchematicsAdapter.isSchematicsSearch(field)){
+            if(!SchematicsAdapter.filter(field, typed, opts)){
+                fireListeners(field, list);
+            }
             return;
         }
 
