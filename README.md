@@ -1,4 +1,10 @@
 # PinyinSearchSupport
+<h1 align="center">
+  <a href="https://github.com/DeterMination-Wind/PinyinSearchSupport/releases/latest"><img src="https://img.shields.io/github/v/release/DeterMination-Wind/PinyinSearchSupport?display_name=release&label=Latest%20Release&color=green"></a>
+  <a href="https://github.com/DeterMination-Wind/PinyinSearchSupport/releases"><img src="https://img.shields.io/github/downloads/DeterMination-Wind/PinyinSearchSupport/total?label=Downloads&color=blue"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/DeterMination-Wind/PinyinSearchSupport?label=License"></a>
+  <a href="https://github.com/DeterMination-Wind/PinyinSearchSupport"><img src="https://img.shields.io/github/stars/DeterMination-Wind/PinyinSearchSupport?style=flat&label=Star%20this%20mod!&color=yellow"></a>
+</h1>
 
 A Mindustry Java mod that adds pinyin search support for Chinese entries in in-game search fields.
 
