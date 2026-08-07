@@ -38,6 +38,7 @@ public final class FieldDispatcher{
 
     public void scan(){
         if(Vars.headless || Core.scene == null || Core.scene.root == null) return;
+        if(!Core.settings.getBool(PinyinSearchSupportMod.keyEnabled, true)) return;
 
         if(!keysCollected) collectBundleKeys();
 
