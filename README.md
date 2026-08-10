@@ -14,6 +14,10 @@ A Mindustry Java mod that adds pinyin search support for Chinese entries in in-g
 - Supports split pinyin input (`pinyin` and `pin'yin` are treated the same)
 - Supports mixed pinyin + numbers (`lan'tu4` -> `蓝图4`)
 - Supports configurable delayed search trigger (search runs after typing stops)
+- Automatic GitHub update checks with configurable interval, mirror support, and an update dialog
+- Pinyin search for schematics (blueprint) lists (`SchematicsAdapter`)
+- Pinyin search for the planet sector list (`SectorListAdapter`)
+- Editor HUD block search scope fix: result lists in `hudGroup`/`menuGroup` filter safely instead of falling back to vanilla search
 
 ## Build
 

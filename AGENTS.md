@@ -6,17 +6,22 @@ PinyinSearchSupport-repo/
 |-- .github/
 |   \-- workflows/
 |       \-- release.yml
+|-- Detail.md
+|-- dist/
+|-- gradlew
 |-- src/
 |   \-- main/
 |       |-- java/
 |       \-- resources/
+|           \-- bundles/
 |-- .gitignore
 |-- AGENTS.md
 |-- build.gradle
 |-- LICENSE
 |-- mod.json
 |-- README.md
-\-- RELEASE_NOTES.md
+|-- RELEASE_NOTES.md
+\-- settings.gradle
 ```
 
 ## 维护约束
