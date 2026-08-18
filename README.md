@@ -1,38 +1,19 @@
 # PinyinSearchSupport
-<h1 align="center">
-  <a href="https://github.com/DeterMination-Wind/PinyinSearchSupport/releases/latest"><img src="https://img.shields.io/github/v/release/DeterMination-Wind/PinyinSearchSupport?display_name=release&label=Latest%20Release&color=green"></a>
-  <a href="https://github.com/DeterMination-Wind/PinyinSearchSupport/releases"><img src="https://img.shields.io/github/downloads/DeterMination-Wind/PinyinSearchSupport/total?label=Downloads&color=blue"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/DeterMination-Wind/PinyinSearchSupport?label=License"></a>
-  <a href="https://github.com/DeterMination-Wind/PinyinSearchSupport"><img src="https://img.shields.io/github/stars/DeterMination-Wind/PinyinSearchSupport?style=flat&label=Star%20this%20mod!&color=yellow"></a>
-</h1>
 
-A Mindustry Java mod that adds pinyin search support for Chinese entries in in-game search fields.
+> Search Chinese Mindustry content with the input you already use.
 
-## Features
+PinyinSearchSupport adds pinyin matching to in-game search fields. It is useful when you remember what an item or block is called but do not want to switch input methods or type the exact Chinese name.
 
-- Supports fuzzy pinyin matching (configurable in settings)
-- Supports split pinyin input (`pinyin` and `pin'yin` are treated the same)
-- Supports mixed pinyin + numbers (`lan'tu4` -> `蓝图4`)
-- Supports configurable delayed search trigger (search runs after typing stops)
-- Automatic GitHub update checks with configurable interval, mirror support, and an update dialog
-- Pinyin search for schematics (blueprint) lists (`SchematicsAdapter`)
-- Pinyin search for the planet sector list (`SectorListAdapter`)
-- Editor HUD block search scope fix: result lists in `hudGroup`/`menuGroup` filter safely instead of falling back to vanilla search
+The search enhancement stays in the client and does not change game content. It works especially well for players who use a non-Chinese keyboard layout or frequently search large lists of blocks, items, units, and schematics.
+
+## Install
+
+Download the release package and put it in Mindustry's mods directory, then enable it in-game.
 
 ## Build
 
-```bash
+~~~powershell
 gradle clean zipMod jarMod jarAndroid
-```
+~~~
 
-Generated files:
-
-- `build/libs/PinyinSearchSupport.zip`
-- `build/libs/PinyinSearchSupport.jar`
-- `build/libs/PinyinSearchSupport-android.jar`
-
-When built locally, the artifact is also copied to the workspace-level `构建` folder as:
-
-- `PinyinSearchSupport-V<version>.zip`
-- `PinyinSearchSupport-V<version>.jar`
-- `PinyinSearchSupport-V<version>-android.jar`
+The generated desktop, universal, and Android artifacts are written to the project build output.
